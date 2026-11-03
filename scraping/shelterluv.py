@@ -65,7 +65,8 @@ def fetch_animals(kind, session=None):
 def sync_animals(client, animals, kind):
     if not animals or any(a["dog/cat"] != kind for a in animals):
         raise ValueError("Refusing to sync empty or mixed-species data")
-    existing = client.table(TABLE).select("*").eq("dog/cat", kind).execute().data
+    # Quote the identifier so PostgREST preserves the slash in its URL grammar.
+    existing = client.table(TABLE).select("*").eq('"dog/cat"', kind).execute().data
     if existing is None:
         raise ValueError("Could not read existing animals")
     by_link = {row["link"]: row for row in existing}
@@ -79,20 +80,39 @@ def sync_animals(client, animals, kind):
     current_links = {animal["link"] for animal in animals}
     for old in existing:
         if old["link"] not in current_links:
-            client.table(TABLE).delete().eq("id", old["id"]).eq("dog/cat", kind).execute()
+            client.table(TABLE).delete().eq("id", old["id"]).eq('"dog/cat"', kind).execute()
+
+
+
+def get_credentials(environ=None):
+    environ = os.environ if environ is None else environ
+    names = ("NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    values = [environ.get(name, "").strip() for name in names]
+    missing = [name for name, value in zip(names, values) if not value]
+    if missing:
+        raise ValueError(
+            "Missing scraper configuration: " + ", ".join(missing)
+            + ". Set these in GitHub Actions repository secrets (or .env.local for local runs). "
+        )
+    return values
 
 
 def main(kind):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    if not args.dry_run:
+        from dotenv import load_dotenv
+        load_dotenv(".env.local")
+        try:
+            url, key = get_credentials()
+        except ValueError as error:
+            parser.exit(1, f"{error}\n")
     animals = fetch_animals(kind)
     if args.dry_run:
         print(json.dumps(animals, indent=2))
         return
-    from dotenv import load_dotenv
     from supabase import create_client
-    load_dotenv(".env.local")
-    client = create_client(os.environ["NEXT_PUBLIC_SUPABASE_URL"], os.environ["NEXT_PUBLIC_SUPABASE_ANON_KEY"])
+    client = create_client(url, key)
     sync_animals(client, animals, kind)
     print(f"Synced {len(animals)} {kind}s")

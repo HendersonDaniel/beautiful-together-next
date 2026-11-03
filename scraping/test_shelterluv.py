@@ -1,9 +1,25 @@
 import unittest
 from unittest.mock import MagicMock
-from shelterluv import fetch_animals, normalize_animal, sync_animals
+from shelterluv import fetch_animals, normalize_animal, sync_animals, get_credentials
 
 
 class ScraperTests(unittest.TestCase):
+    def test_missing_or_blank_credentials_name_missing_settings(self):
+        for env in ({}, {"NEXT_PUBLIC_SUPABASE_URL": " "}):
+            with self.assertRaisesRegex(ValueError, "NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY"):
+                get_credentials(env)
+
+    def test_missing_url_does_not_expose_key(self):
+        with self.assertRaisesRegex(ValueError, "NEXT_PUBLIC_SUPABASE_URL") as error:
+            get_credentials({"NEXT_PUBLIC_SUPABASE_ANON_KEY": "test-key"})
+        self.assertNotIn("test-key", str(error.exception))
+
+    def test_existing_credentials_are_supported(self):
+        self.assertEqual(get_credentials({"NEXT_PUBLIC_SUPABASE_URL": " https://example.supabase.co ",
+                                          "NEXT_PUBLIC_SUPABASE_ANON_KEY": "test-secret-key"}),
+                         ["https://example.supabase.co", "test-secret-key"])
+
+
     def test_photos_accept_sparse_objects_and_cover_first(self):
         animal = {"name": "Cat", "species": "Cat", "public_url": "/embed/animal/CAT-1", "photos": {
             "2": {"url": "/second.jpg"}, "9": {"url": "/cover.jpg", "isCover": True},
@@ -29,6 +45,23 @@ class ScraperTests(unittest.TestCase):
         table.update.assert_called_once_with(new)
         table.update.return_value.eq.assert_called_once_with("id", 42)
         table.delete.assert_not_called()
+
+    def test_species_filter_quotes_column_for_both_reads_and_deletes(self):
+        for kind in ("dog", "cat"):
+            with self.subTest(kind=kind):
+                client = MagicMock()
+                table = client.table.return_value
+                current = {"name": "Pet", "link": "https://example.org/current", "images": [], "tags": {}, "dog/cat": kind}
+                table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": 1, **current},
+                    {"id": 2, "link": "https://example.org/old", "dog/cat": kind},
+                ]
+                sync_animals(client, [current], kind)
+                table.select.return_value.eq.assert_called_once_with('"dog/cat"', kind)
+                table.delete.return_value.eq.assert_called_once_with("id", 2)
+                table.delete.return_value.eq.return_value.eq.assert_called_once_with('"dog/cat"', kind)
+                table.insert.assert_not_called()
+                table.update.assert_not_called()
 
     def test_upstream_failure_aborts_fetch(self):
         session = MagicMock()
