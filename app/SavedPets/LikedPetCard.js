@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { getPetImages, handlePetImageError } from "../../utils/petImages";
 import {
   Card,
   Box,
@@ -14,7 +15,8 @@ import { removeAnimal } from "../savedPetsCookie/savedPetsCookie";
 
 export const LikedPetCard = ({ pet, children }) => {
   const [currentPic, setCurrentPic] = React.useState(0);
-  const numpics = pet.images != undefined ? pet.images.length : 1;
+  const images = getPetImages(pet);
+  const numpics = images.length;
 
   const prevPic = () => {
     setCurrentPic((currentPic - 1 + numpics) % numpics);
@@ -42,7 +44,8 @@ export const LikedPetCard = ({ pet, children }) => {
         <CardMedia
           component="img"
           height="400"
-          image={pet.images != undefined ? pet.images[currentPic] : pet.images}
+          image={images[currentPic] || images[0]}
+          onError={handlePetImageError}
           alt={pet.name}
           sx={{ objectFit: "cover" }}
         />

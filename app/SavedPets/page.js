@@ -50,7 +50,7 @@ export default function SavedPetsPage() {
       const cookieData = await getSavedAnimals();
       console.log("Cached data:", cookieData);
       if (data) {
-        let saved = cookieData.map((id) => data.find((pet) => pet.id == id));
+        let saved = cookieData.map((id) => data.find((pet) => pet.id == id)).filter(Boolean);
         saved.reverse(); // most recent saved at the top
         setPets(saved);
         console.log("saved", saved);

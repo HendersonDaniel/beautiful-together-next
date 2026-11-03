@@ -1,15 +1,9 @@
 "use client";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
 import LikedCat from "./liked-cat";
 import LikedDog from "./liked-dog";
 import { useState } from "react";
-import { unstable_cache } from "next/cache";
 import { useEffect } from "react";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function LikedPetsPage() {
   const [bear] = useState({

@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 
 const preferenceTagMap = {
   "Pet Preference": {
@@ -235,6 +235,7 @@ function calculateClosenessScore(animal, preferences) {
  */
 
 export async function POST(req) {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
   try {
     const preferences = await req.json();
 

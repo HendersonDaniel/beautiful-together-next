@@ -1,10 +1,11 @@
 import { getPetData } from "@/utils/indexedDB";
 import { getSavedAnimals, removeAnimal } from "../savedPetsCookie/savedPetsCookie";
 
-export const cleanSavedAnimalsFromIndexedDB = async () => {
+export const cleanSavedAnimalsFromIndexedDB = async (pets) => {
     try {
       const savedAnimals = getSavedAnimals();
-      const allPets = await getPetData();
+      const allPets = pets ?? await getPetData();
+      if (!Array.isArray(allPets)) return;
       const validPetIds = new Set(allPets.map((pet) => pet.id));
   
       const invalidIds = savedAnimals.filter((id) => !validPetIds.has(id));

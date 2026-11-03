@@ -1,3 +1,4 @@
+import { getPetImages, defaultPetImage, handlePetImageError } from "../../utils/petImages";
 import React, { useState, useEffect } from "react";
 import { saveAnimal } from "../savedPetsCookie/savedPetsCookie";
 import {
@@ -48,8 +49,7 @@ const iconMap = {
   "Good With Livestock?": Pets,
 };
 
-const defaultImage =
-  "https://beautifultogethersanctuary.com/wp-content/uploads/2023/09/btogether-new-sanctuary-286x116-1.png";
+const defaultImage = defaultPetImage;
 
 const PetCard = ({ petsQueue, adoptNotification }) => {
   const [currentPet, setCurrentPet] = useState(petsQueue[0]);
@@ -127,11 +127,7 @@ const PetCard = ({ petsQueue, adoptNotification }) => {
       }
     }
 
-    const images = pet.images && pet.images.length > 0
-    ? pet.images.map((img) =>
-        img.startsWith("http") ? img : `${img}`
-      )
-    : [defaultImage];
+    const images = getPetImages(pet);
 
     // Create a more detailed description for the pet
     const detailedSummary = pet.tags?.["Energy Level"]
@@ -246,19 +242,15 @@ const PetCard = ({ petsQueue, adoptNotification }) => {
       }}
     >
       {/* Pet Image Section */}
-      <Box sx={{ position: "relative", height: "400px" }}> 
+      <Box sx={{ position: "relative", height: "400px", flexShrink: 0 }}>
         <CardMedia
           component="img"
           image={currentPet?.images?.[currentPic] ?? defaultImage}
           alt={currentPet?.name}
-          onError={(e) => {
-            console.error(`Failed to load image at index ${currentPic}:`, e);
-            // Set fallback image
-            e.target.src = defaultImage;
-          }}
+          onError={handlePetImageError}
           sx={{ 
             objectFit: "contain",
-            backgroundColor: "#000000",
+            backgroundColor: "#f2f0e9",
             height: "100%", 
             width: "100%"   
           }}
