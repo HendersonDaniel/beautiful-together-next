@@ -65,10 +65,23 @@ def fetch_animals(kind, session=None):
 def sync_animals(client, animals, kind):
     if not animals or any(a["dog/cat"] != kind for a in animals):
         raise ValueError("Refusing to sync empty or mixed-species data")
-    # Quote the identifier so PostgREST preserves the slash in its URL grammar.
-    existing = client.table(TABLE).select("*").eq('"dog/cat"', kind).execute().data
-    if existing is None:
-        raise ValueError("Could not read existing animals")
+    # Read all species and filter in Python: PostgREST/client versions disagree
+    # about escaping the slash in the legacy column name. Pagination avoids
+    # silently ignoring records beyond the API's configured row limit.
+    existing = []
+    offset = 0
+    while True:
+        page = client.table(TABLE).select("*").order("id").range(offset, offset + 499).execute().data
+        if not isinstance(page, list):
+            raise ValueError("Could not read existing animals")
+        if not page:
+            break
+        for row in page:
+            if not {"id", "link", "dog/cat"}.issubset(row):
+                raise ValueError("Available Animals must contain id, link, and dog/cat columns")
+            if row["dog/cat"] == kind:
+                existing.append(row)
+        offset += len(page)
     by_link = {row["link"]: row for row in existing}
     for animal in animals:
         old = by_link.get(animal["link"])
@@ -80,7 +93,7 @@ def sync_animals(client, animals, kind):
     current_links = {animal["link"] for animal in animals}
     for old in existing:
         if old["link"] not in current_links:
-            client.table(TABLE).delete().eq("id", old["id"]).eq('"dog/cat"', kind).execute()
+            client.table(TABLE).delete().eq("id", old["id"]).execute()
 
 
 

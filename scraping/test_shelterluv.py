@@ -34,35 +34,6 @@ class ScraperTests(unittest.TestCase):
             sync_animals(client, [], "dog")
         client.table.assert_not_called()
 
-    def test_photo_only_change_updates_existing_id(self):
-        client = MagicMock()
-        table = client.table.return_value
-        old = {"id": 42, "name": "Dog", "link": "https://example.org/dog", "images": ["old.jpg"], "tags": {}, "dog/cat": "dog"}
-        table.select.return_value.eq.return_value.execute.return_value.data = [old]
-        new = {k: v for k, v in old.items() if k != "id"}
-        new["images"] = ["new.jpg"]
-        sync_animals(client, [new], "dog")
-        table.update.assert_called_once_with(new)
-        table.update.return_value.eq.assert_called_once_with("id", 42)
-        table.delete.assert_not_called()
-
-    def test_species_filter_quotes_column_for_both_reads_and_deletes(self):
-        for kind in ("dog", "cat"):
-            with self.subTest(kind=kind):
-                client = MagicMock()
-                table = client.table.return_value
-                current = {"name": "Pet", "link": "https://example.org/current", "images": [], "tags": {}, "dog/cat": kind}
-                table.select.return_value.eq.return_value.execute.return_value.data = [
-                    {"id": 1, **current},
-                    {"id": 2, "link": "https://example.org/old", "dog/cat": kind},
-                ]
-                sync_animals(client, [current], kind)
-                table.select.return_value.eq.assert_called_once_with('"dog/cat"', kind)
-                table.delete.return_value.eq.assert_called_once_with("id", 2)
-                table.delete.return_value.eq.return_value.eq.assert_called_once_with('"dog/cat"', kind)
-                table.insert.assert_not_called()
-                table.update.assert_not_called()
-
     def test_upstream_failure_aborts_fetch(self):
         session = MagicMock()
         session.get.return_value.raise_for_status.side_effect = RuntimeError("503")

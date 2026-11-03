@@ -8,6 +8,10 @@ on:
   workflow_dispatch: # Allows you to manually trigger the workflow
     inputs: {}
 
+concurrency:
+  group: daily-animal-sync
+  cancel-in-progress: false
+
 jobs:
   run-dog-scrape:
     runs-on: ubuntu-24.04
@@ -26,11 +30,10 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install supabase
-          pip install python-dotenv
-          python -m pip install requests
-          python -m pip install beautifulsoup4
+          python -m pip install -r scraping/requirements.txt
+
+      - name: Test scraper and HTTP requests
+        run: python -m unittest discover -s scraping -p 'test_*.py'
 
       # Run the scraping script
       - name: Run Scraping
