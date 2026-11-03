@@ -1,51 +1,36 @@
 function getSavedPreferences() {
-  // Retrieve the JSON string from localStorage
-  const savedPreferences = localStorage.getItem("preferences");
+  try {
+    const savedPreferences = localStorage.getItem("preferences");
+    const preferences = savedPreferences ? JSON.parse(savedPreferences) : null;
+    return preferences && typeof preferences === "object" && !Array.isArray(preferences)
+      ? preferences
+      : null;
+  } catch {
+    // Unavailable storage or an old, malformed value should not hide pets.
+    return null;
+  }
+}
 
-  // Parse the JSON string back into an object
-  return savedPreferences ? JSON.parse(savedPreferences) : null;
+async function fetchAnimals(url, options = {}) {
+  const response = await fetch(url, { ...options, cache: "no-store" });
+  if (!response.ok) throw new Error(`Failed to load pets (${response.status})`);
+  const animals = await response.json();
+  if (!Array.isArray(animals)) throw new Error("Invalid pet data received");
+  return animals;
 }
 
 export const fetchOrderedPets = async () => {
-    const preferences = getSavedPreferences();
-    //console.log(preferences);
-  
+  const preferences = getSavedPreferences();
+  if (preferences) {
     try {
-      if (!preferences) {
-        //console.warn('No preferences saved to rank animals. Fetching unranked animals.');
-        // Fetch unranked animals if no preferences are saved
-        const res = await fetch('../api/animals');
-        const unrankedAnimals = await res.json();
-        return unrankedAnimals;
-      }
-  
-      const response = await fetch('../api/animalsByPreference', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      return await fetchAnimals("/api/animalsByPreference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(preferences),
       });
-      console.log(preferences);
-  
-      if (!response.ok) {
-        //console.warn('Failed to fetch ranked animals. Fetching unranked animals instead.');
-        //console.error("Response: " + response.status);
-        const res = await fetch('../api/animals');
-        const unrankedAnimals = await res.json();
-        return unrankedAnimals;
-      }
-  
-      const rankedAnimals = await response.json();
-      //console.log('Ranked Animals:', rankedAnimals);
-      return rankedAnimals;
-  
     } catch (error) {
-      //console.error('An error occurred while fetching ranked animals:', error);
-      //console.warn('Fetching unranked animals as fallback.');
-      const res = await fetch('../api/animals');
-
-      const unrankedAnimals = await res.json();
-      return unrankedAnimals;
+      console.error("Failed to rank pets, loading all pets instead:", error);
     }
+  }
+  return fetchAnimals("/api/animals");
 };
